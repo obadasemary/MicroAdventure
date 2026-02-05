@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AF9382242F35491E008BA37C /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = AF9382232F35491E008BA37C /* README.md */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		AF4346542F3514430019BE5E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +31,7 @@
 		AF4346462F3514420019BE5E /* MicroAdventure.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MicroAdventure.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF4346532F3514430019BE5E /* MicroAdventureTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MicroAdventureTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF43465D2F3514430019BE5E /* MicroAdventureUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MicroAdventureUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AF9382232F35491E008BA37C /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -79,6 +84,7 @@
 				AF4346562F3514430019BE5E /* MicroAdventureTests */,
 				AF4346602F3514430019BE5E /* MicroAdventureUITests */,
 				AF4346472F3514420019BE5E /* Products */,
+				AF9382232F35491E008BA37C /* README.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -212,6 +218,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AF9382242F35491E008BA37C /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -14,12 +14,45 @@ import AppKit
 #endif
 
 struct SnakeGameView: View {
+    private enum SnakeAIDifficulty: String, CaseIterable, Identifiable {
+        case relaxed
+        case normal
+        case intense
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .relaxed:
+                return "Relaxed"
+            case .normal:
+                return "Normal"
+            case .intense:
+                return "Intense"
+            }
+        }
+
+        var tickInterval: TimeInterval {
+            switch self {
+            case .relaxed:
+                return 0.24
+            case .normal:
+                return 0.18
+            case .intense:
+                return 0.12
+            }
+        }
+    }
+
     private let columns = 18
     private let rows = 18
-    private let tickInterval: TimeInterval = 0.18
+    private var tickInterval: TimeInterval { difficulty.tickInterval }
 
     @State private var rng = SystemRandomNumberGenerator()
     @State private var game: SnakeGameState
+    @State private var isAIEnabled = false
+    @State private var difficulty: SnakeAIDifficulty = .normal
+    @State private var manualOverrideTicks = 0
 
     init() {
         var generator = SystemRandomNumberGenerator()
@@ -62,28 +95,44 @@ struct SnakeGameView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Score")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("\(game.score)")
-                    .font(.title2)
-                    .fontWeight(.bold)
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Score")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("\(game.score)")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                }
+
+                Spacer()
+
+                Button(game.isPaused ? "Resume" : "Pause") {
+                    togglePause()
+                }
+                .buttonStyle(.bordered)
+                .disabled(game.isGameOver)
+
+                Button("Restart") {
+                    restart()
+                }
+                .buttonStyle(.borderedProminent)
             }
 
-            Spacer()
+            HStack(spacing: 12) {
+                Toggle("AI", isOn: $isAIEnabled)
+                    .toggleStyle(.switch)
+                    .disabled(game.isGameOver)
 
-            Button(game.isPaused ? "Resume" : "Pause") {
-                togglePause()
+                Picker("Difficulty", selection: $difficulty) {
+                    ForEach(SnakeAIDifficulty.allCases) { level in
+                        Text(level.label).tag(level)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(!isAIEnabled || game.isGameOver)
             }
-            .buttonStyle(.bordered)
-            .disabled(game.isGameOver)
-
-            Button("Restart") {
-                restart()
-            }
-            .buttonStyle(.borderedProminent)
         }
     }
 
@@ -98,9 +147,15 @@ struct SnakeGameView: View {
                     .font(.headline)
                     .foregroundStyle(.secondary)
             } else {
-                Text("Use arrow keys or WASD")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                if isAIEnabled, manualOverrideTicks > 0 {
+                    Text("Manual override active")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(isAIEnabled ? "AI is playing" : "Use arrow keys or WASD")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -150,11 +205,20 @@ struct SnakeGameView: View {
 
     private func tick() {
         var copy = rng
+        if isAIEnabled, manualOverrideTicks == 0 {
+            let direction = aiDirection(for: game, using: &copy)
+            game.setDirection(direction)
+        } else if manualOverrideTicks > 0 {
+            manualOverrideTicks -= 1
+        }
         game.tick(using: &copy)
         rng = copy
     }
 
     private func setDirection(_ direction: SnakeDirection) {
+        if isAIEnabled {
+            manualOverrideTicks = 3
+        }
         game.setDirection(direction)
     }
 
@@ -166,6 +230,65 @@ struct SnakeGameView: View {
         var copy = rng
         game.reset(using: &copy)
         rng = copy
+    }
+
+    private func aiDirection(for state: SnakeGameState, using rng: inout SystemRandomNumberGenerator) -> SnakeDirection {
+        guard let head = state.snake.first else { return state.direction }
+
+        let candidates = SnakeDirection.allCases.filter { direction in
+            if state.snake.count > 1, direction == state.direction.opposite {
+                return false
+            }
+            let nextHead = head.moved(direction)
+            if isOutOfBounds(nextHead, columns: state.columns, rows: state.rows) {
+                return false
+            }
+            let willGrow = state.pendingGrowth > 0 || nextHead == state.food
+            let bodyToCheck = willGrow ? state.snake : Array(state.snake.dropLast())
+            return !bodyToCheck.contains(nextHead)
+        }
+
+        guard !candidates.isEmpty else { return state.direction }
+
+        let food = state.food
+        let scored = candidates.map { direction -> (SnakeDirection, Int) in
+            let next = head.moved(direction)
+            let distance = abs(next.x - food.x) + abs(next.y - food.y)
+            return (direction, distance)
+        }
+
+        let minDistance = scored.map(\.1).min() ?? 0
+        let best = scored.filter { $0.1 == minDistance }.map(\.0)
+
+        switch difficulty {
+        case .relaxed:
+            if Int.random(in: 0..<10, using: &rng) < 3 {
+                return best.randomElement(using: &rng) ?? state.direction
+            }
+            return candidates.randomElement(using: &rng) ?? state.direction
+        case .intense:
+            if best.contains(state.direction) { return state.direction }
+            if let straight = best.first(where: { $0 == state.direction }) { return straight }
+            if Int.random(in: 0..<100, using: &rng) < 95 {
+                return best.randomElement(using: &rng) ?? state.direction
+            }
+            return candidates.randomElement(using: &rng) ?? state.direction
+        case .normal:
+            if Int.random(in: 0..<10, using: &rng) < 7 {
+                return best.randomElement(using: &rng) ?? state.direction
+            }
+            return candidates.randomElement(using: &rng) ?? state.direction
+        }
+
+        if best.isEmpty {
+            return candidates.randomElement(using: &rng) ?? state.direction
+        }
+        let index = Int.random(in: 0..<best.count, using: &rng)
+        return best[index]
+    }
+
+    private func isOutOfBounds(_ point: GridPoint, columns: Int, rows: Int) -> Bool {
+        point.x < 0 || point.x >= columns || point.y < 0 || point.y >= rows
     }
 }
 
